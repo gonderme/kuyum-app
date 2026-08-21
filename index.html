@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Kuyum Satış Sistemi</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: Arial; background: #f5f5f5; }
+    .navbar { background: linear-gradient(135deg, #667eea, #764ba2); color: white; padding: 20px; text-align: center; }
+    .navbar h1 { font-size: 24px; }
+    .container { max-width: 1200px; margin: 20px auto; padding: 20px; }
+    .dashboard { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px; }
+    .stat-card { background: white; padding: 30px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); text-align: center; }
+    .stat-card h3 { color: #666; margin-bottom: 15px; font-size: 14px; }
+    .stat-card p { font-size: 32px; font-weight: bold; color: #667eea; }
+  </style>
+</head>
+<body>
+  <header class="navbar">
+    <h1>🏪 KUYUM SATIŞ SİSTEMİ</h1>
+  </header>
+
+  <main class="container">
+    <div id="loading">Yükleniyor...</div>
+    <div id="dashboard" class="dashboard" style="display:none;">
+      <div class="stat-card">
+        <h3>Toplam Satış</h3>
+        <p id="totalSales">$0</p>
+      </div>
+      <div class="stat-card">
+        <h3>Satış Sayısı</h3>
+        <p id="salesCount">0</p>
+      </div>
+      <div class="stat-card">
+        <h3>Acenteler</h3>
+        <p id="agencyCount">0</p>
+      </div>
+    </div>
+  </main>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script>
+    const SUPABASE_URL = 'https://mntpcoyziokqoieqtgkh.supabase.co'
+    const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1udHBjb3l6aW9rcW9pZXF0Z2toIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODczMTg5MDYsImV4cCI6MjEwMjg5NDkwNn0.fLWxxFERb_7QiykJlzjn6Q9LuJuVB7onPkMxyE2ktYw'
+    
+    const db = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY)
+
+    async function loadData() {
+      try {
+        const { data: acenteler } = await db.from('acenteler').select('*')
+        const { data: satislar } = await db.from('satislar').select('*')
+
+        document.getElementById('loading').style.display = 'none'
+        document.getElementById('dashboard').style.display = 'grid'
+        
+        document.getElementById('agencyCount').textContent = acenteler?.length || 0
+        document.getElementById('salesCount').textContent = satislar?.length || 0
+        
+        const total = satislar?.reduce((sum, s) => sum + (s.tutar || 0), 0) || 0
+        document.getElementById('totalSales').textContent = '$' + total.toFixed(2)
+
+      } catch (error) {
+        console.error('Hata:', error)
+        document.getElementById('loading').textContent = 'Hata: ' + error.message
+      }
+    }
+
+    loadData()
+  </script>
+</body>
+</html>
