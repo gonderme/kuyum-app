@@ -48,7 +48,7 @@
     async function loadData() {
       try {
         const { data: acenteler } = await db.from('acenteler').select('*')
-        const { data: satislar } = await db.from('satislar').select('*')
+        const { data: satislar } = await db.from('satislar').select('*').range(0, 5000)
 
         document.getElementById('loading').style.display = 'none'
         document.getElementById('dashboard').style.display = 'grid'
@@ -57,7 +57,7 @@
         document.getElementById('salesCount').textContent = satislar?.length || 0
         
         const total = satislar?.reduce((sum, s) => sum + (s.tutar || 0), 0) || 0
-        document.getElementById('totalSales').textContent = '$' + total.toFixed(2)
+        document.getElementById('totalSales').textContent = '$' + total.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})
 
       } catch (error) {
         console.error('Hata:', error)
