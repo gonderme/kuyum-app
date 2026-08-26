@@ -64,7 +64,7 @@
   </main>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script>
-    const db = window.supabase.createClient('https://mntpcoyziokqoieqtgkh.supabase.co', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1udHBjb3l6aW9pZXF0Z2toIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODczMTg5MDYsImV4cCI6MjEwMjg5NDkwNn0.fLWxxFERb_7QiykJlzjn6Q9LuJuVB7onPkMxyE2ktYw')
+    const db = window.supabase.createClient('https://mntpcoyziokqoieqtgkh.supabase.co', 'sb_publishable_pwtyiRlGK2mLpfTq34e_lg_g_fCKTpn')
     let allSatislar = [], allAcenteler = [], allRehberler = [], allSubeler = [];
     function getBranchClass(id) { return id == 1 ? 'branch-art' : id == 6 ? 'branch-oba' : ''; }
     function getBranchName(id) { return allSubeler.find(s => s.id == id)?.sube_adi || 'N/A'; }
