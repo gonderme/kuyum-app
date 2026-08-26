@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Rehber Komisyon Portalı</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: Arial; background: #f5f5f5; }
+    .navbar { background: linear-gradient(135deg, #ff6b6b, #ee5a6f); color: white; padding: 20px; text-align: center; }
+    .navbar h1 { font-size: 24px; }
+    .container { max-width: 1200px; margin: 20px auto; padding: 20px; }
+    .selector { background: white; padding: 20px; border-radius: 10px; margin-bottom: 20px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+    .selector select { padding: 10px; font-size: 16px; width: 300px; border-radius: 5px; border: 1px solid #ddd; }
+    .section { background: white; padding: 20px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); margin-bottom: 20px; }
+    .section h2 { color: #ff6b6b; margin-bottom: 15px; }
+    .stat-card { background: #fff; border-left: 5px solid #ff6b6b; padding: 15px; margin-bottom: 10px; border-radius: 5px; }
+    .stat-card .label { color: #666; font-size: 14px; }
+    .stat-card .value { font-size: 28px; font-weight: bold; color: #ff6b6b; }
+    table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    th, td { padding: 10px; text-align: left; border-bottom: 1px solid #eee; }
+    th { background: #ff6b6b; color: white; font-weight: bold; }
+    tr:hover { background: #f9f9f9; }
+    .amount { color: #4CAF50; font-weight: bold; }
+    .commission { color: #ff6b6b; font-weight: bold; }
+    .table-container { max-height: 600px; overflow-y: auto; }
+  </style>
+</head>
+<body>
+  <header class="navbar">
+    <h1>💰 REHBER KOMİSYON PORTALI</h1>
+  </header>
+
+  <main class="container">
+    <div class="selector">
+      <label for="rehberSelect">Rehber Seç:</label>
+      <select id="rehberSelect" onchange="filterByRehber()">
+        <option value="">-- Rehber Seçiniz --</option>
+      </select>
+    </div>
+
+    <div id="loading" style="display:none;">Yükleniyor...</div>
+    
+    <div id="portal" style="display:none;">
+      <div class="section">
+        <h2>Özet</h2>
+        <div class="stat-card">
+          <div class="label">Toplam Satış</div>
+          <div class="value" id="totalSales">$0</div>
+        </div>
+        <div class="stat-card">
+          <div class="label">Satış Sayısı</div>
+          <div class="value" id="salesCount">0</div>
+        </div>
+        <div class="stat-card">
+          <div class="label">Komisyon (%5)</div>
+          <div class="value commission" id="totalCommission">$0</div>
+        </div>
+      </div>
+
+      <div class="section">
+        <h2>Satış Detayları</h2>
+        <div class="table-container">
+          <table>
+            <thead>
+              <tr>
+                <th>Tarih</th>
+                <th>Şube</th>
+                <th>Acente</th>
+                <th>Tutar</th>
+                <th>Komisyon (%5)</th>
+              </tr>
+            </thead>
+            <tbody id="salesBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script>
+    const db = window.supabase.createClient('https://mntpcoyziokqoieqtgkh.supabase.co', 'sb_publishable_pwtyiRlGK2mLpfTq34e_lg_g_fCKTpn')
+    
+    let allSatislar = [], allRehberler = [], allAcenteler = [], allSubeler = [];
+    const REHBER_COMMISSION = 0.05; // %5
+
+    async function loadData() {
+      try {
+        document.getElementById('loading').style.display = 'block';
+        
+        allRehberler = (await db.from('rehberler').select('*')).data || [];
+        allAcenteler = (await db.from('acenteler').select('*')).data || [];
+        allSubeler = (await db.from('subeler').select('*')).data || [];
+        
+        let offset = 0;
+        while (true) {
+          let d = (await db.from('satislar').select('*').range(offset, offset + 999)).data;
+          if (!d?.length) break;
+          allSatislar = allSatislar.concat(d);
+          offset += 1000;
+        }
+
+        // Dropdown'u doldur
+        const select = document.getElementById('rehberSelect');
+        allRehberler.forEach(r => {
+          const option = document.createElement('option');
+          option.value = r.id;
+          option.textContent = r.rehber_adi;
+          select.appendChild(option);
+        });
+
+        document.getElementById('loading').style.display = 'none';
+      } catch (e) {
+        document.getElementById('loading').textContent = 'Hata: ' + e.message;
+      }
+    }
+
+    function filterByRehber() {
+      const rehberId = document.getElementById('rehberSelect').value;
+      if (!rehberId) {
+        document.getElementById('portal').style.display = 'none';
+        return;
+      }
+
+      const rehber = allRehberler.find(r => r.id == rehberId);
+      const filtered = allSatislar.filter(s => s.rehber_id == rehberId);
+      
+      const total = filtered.reduce((sum, s) => sum + parseFloat(s.tutar || 0), 0);
+      const commission = total * REHBER_COMMISSION;
+
+      document.getElementById('totalSales').textContent = '$' + total.toLocaleString('en-US', {minimumFractionDigits: 2});
+      document.getElementById('salesCount').textContent = filtered.length;
+      document.getElementById('totalCommission').textContent = '$' + commission.toLocaleString('en-US', {minimumFractionDigits: 2});
+
+      document.getElementById('salesBody').innerHTML = filtered.map(s => {
+        const comm = parseFloat(s.tutar) * REHBER_COMMISSION;
+        return `<tr>
+          <td>${s.satis_tarihi}</td>
+          <td>${allSubeler.find(su => su.id == s.sube_id)?.sube_adi || 'N/A'}</td>
+          <td>${allAcenteler.find(a => a.id == s.acente_id)?.acente_adi || '?'}</td>
+          <td class="amount">$${parseFloat(s.tutar).toLocaleString('en-US', {minimumFractionDigits: 2})}</td>
+          <td class="commission">$${comm.toLocaleString('en-US', {minimumFractionDigits: 2})}</td>
+        </tr>`;
+      }).join('');
+
+      document.getElementById('portal').style.display = 'block';
+    }
+
+    loadData();
+  </script>
+</body>
+</html>
