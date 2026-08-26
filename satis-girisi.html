@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Satış Giriş Formu</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: Arial; background: #f5f5f5; }
+    .navbar { background: linear-gradient(135deg, #4CAF50, #45a049); color: white; padding: 20px; text-align: center; }
+    .navbar h1 { font-size: 24px; }
+    .container { max-width: 600px; margin: 20px auto; padding: 20px; }
+    .form-section { background: white; padding: 30px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+    .form-group { margin-bottom: 20px; }
+    label { display: block; margin-bottom: 8px; color: #333; font-weight: bold; }
+    input, select, textarea { width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 5px; font-size: 14px; }
+    input:focus, select:focus, textarea:focus { outline: none; border-color: #4CAF50; box-shadow: 0 0 5px rgba(76, 175, 80, 0.3); }
+    button { width: 100%; padding: 12px; background: #4CAF50; color: white; border: none; border-radius: 5px; font-size: 16px; font-weight: bold; cursor: pointer; }
+    button:hover { background: #45a049; }
+    .success { color: #4CAF50; margin-top: 10px; }
+    .error { color: #f44336; margin-top: 10px; }
+  </style>
+</head>
+<body>
+  <header class="navbar">
+    <h1>📝 SATIŞ GİRİŞ FORMU</h1>
+  </header>
+
+  <main class="container">
+    <div class="form-section">
+      <form id="satisForm">
+        <div class="form-group">
+          <label for="tarih">Tarih *</label>
+          <input type="date" id="tarih" required>
+        </div>
+
+        <div class="form-group">
+          <label for="sube">Şube *</label>
+          <select id="sube" required>
+            <option value="">-- Seç --</option>
+            <option value="1">ART (Kuşadası)</option>
+            <option value="6">OBA (Selçuk)</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label for="acente">Acente *</label>
+          <select id="acente" required>
+            <option value="">-- Yükleniyor --</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label for="rehber">Rehber *</label>
+          <select id="rehber" required>
+            <option value="">-- Yükleniyor --</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label for="musteri">Müşteri Adı</label>
+          <input type="text" id="musteri" placeholder="Müşteri adı">
+        </div>
+
+        <div class="form-group">
+          <label for="urunTipi">Ürün Tipi *</label>
+          <select id="urunTipi" required>
+            <option value="">-- Seç --</option>
+            <option value="HALI">Halı</option>
+            <option value="TEKSTİL">Tekstil</option>
+            <option value="DİĞER">Diğer</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label for="tutar">Tutar *</label>
+          <input type="number" id="tutar" step="0.01" placeholder="0.00" required>
+        </div>
+
+        <div class="form-group">
+          <label for="paraBirimi">Para Birimi *</label>
+          <select id="paraBirimi" required>
+            <option value="USD">USD</option>
+            <option value="TL">TL</option>
+            <option value="EUR">EUR</option>
+            <option value="GBP">GBP</option>
+          </select>
+        </div>
+
+        <button type="submit">💾 SATIŞI KAYDET</button>
+      </form>
+      
+      <div id="message"></div>
+    </div>
+  </main>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script>
+    const db = window.supabase.createClient('https://mntpcoyziokqoieqtgkh.supabase.co', 'sb_publishable_pwtyiRlGK2mLpfTq34e_lg_g_fCKTpn')
+    
+    let allAcenteler = [], allRehberler = [];
+
+    async function loadData() {
+      try {
+        allAcenteler = (await db.from('acenteler').select('*')).data || [];
+        allRehberler = (await db.from('rehberler').select('*')).data || [];
+
+        // Acenteler dropdown
+        const acenteSelect = document.getElementById('acente');
+        acenteSelect.innerHTML = '<option value="">-- Seç --</option>';
+        allAcenteler.forEach(a => {
+          const option = document.createElement('option');
+          option.value = a.id;
+          option.textContent = a.acente_adi;
+          acenteSelect.appendChild(option);
+        });
+
+        // Rehberler dropdown
+        const rehberSelect = document.getElementById('rehber');
+        rehberSelect.innerHTML = '<option value="">-- Seç --</option>';
+        allRehberler.forEach(r => {
+          const option = document.createElement('option');
+          option.value = r.id;
+          option.textContent = r.rehber_adi;
+          rehberSelect.appendChild(option);
+        });
+
+        // Tarih default'ı bugün yap
+        const today = new Date().toISOString().split('T')[0];
+        document.getElementById('tarih').value = today;
+      } catch (e) {
+        console.error('Hata:', e);
+      }
+    }
+
+    document.getElementById('satisForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      
+      const messageDiv = document.getElementById('message');
+      messageDiv.innerHTML = '';
+
+      try {
+        const satis = {
+          satis_tarihi: document.getElementById('tarih').value,
+          sube_id: parseInt(document.getElementById('sube').value),
+          acente_id: parseInt(document.getElementById('acente').value),
+          rehber_id: parseInt(document.getElementById('rehber').value),
+          musteri_adi: document.getElementById('musteri').value || null,
+          urun_tipi: document.getElementById('urunTipi').value,
+          tutar: parseFloat(document.getElementById('tutar').value),
+          para_birimi: document.getElementById('paraBirimi').value
+        };
+
+        const result = await db.from('satislar').insert([satis]).execute();
+        
+        if (result.data && result.data.length > 0) {
+          messageDiv.innerHTML = '<div class="success">✅ Satış başarıyla kaydedildi!</div>';
+          document.getElementById('satisForm').reset();
+          const today = new Date().toISOString().split('T')[0];
+          document.getElementById('tarih').value = today;
+        } else {
+          messageDiv.innerHTML = '<div class="error">❌ Kayıt başarısız oldu!</div>';
+        }
+      } catch (error) {
+        messageDiv.innerHTML = `<div class="error">❌ Hata: ${error.message}</div>`;
+      }
+    });
+
+    loadData();
+  </script>
+</body>
+</html>
