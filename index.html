@@ -47,8 +47,8 @@
 
     async function loadData() {
       try {
-        const { data: acenteler } = await db.from('acenteler').select('*')
-        const { data: satislar } = await db.from('satislar').select('*').range(0, 5000)
+        const { data: acenteler } = await db.from('acenteler').select('*').range(0, 10000)
+        const { data: satislar } = await db.from('satislar').select('*').range(0, 10000)
 
         document.getElementById('loading').style.display = 'none'
         document.getElementById('dashboard').style.display = 'grid'
