@@ -8,14 +8,21 @@
     body { font-family: Arial; background: #f5f5f5; }
     .navbar { background: linear-gradient(135deg, #667eea, #764ba2); color: white; padding: 20px; text-align: center; }
     .navbar h1 { font-size: 24px; }
-    .container { max-width: 1200px; margin: 20px auto; padding: 20px; }
-    .tabs { margin-bottom: 20px; display: flex; gap: 10px; border-bottom: 2px solid #ddd; }
-    .tab-btn { padding: 10px 20px; background: #e0e0e0; border: none; cursor: pointer; border-radius: 5px 5px 0 0; font-weight: bold; }
+    .container { max-width: 1400px; margin: 20px auto; padding: 20px; }
+    .tabs { margin-bottom: 20px; display: flex; gap: 10px; }
+    .tab-btn { padding: 10px 20px; background: #e0e0e0; border: none; cursor: pointer; border-radius: 5px; font-weight: bold; }
     .tab-btn.active { background: #667eea; color: white; }
-    .dashboard { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px; }
+    .dashboard { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px; margin-bottom: 30px; }
     .stat-card { background: white; padding: 30px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); text-align: center; }
     .stat-card h3 { color: #666; margin-bottom: 15px; font-size: 14px; }
     .stat-card p { font-size: 32px; font-weight: bold; color: #667eea; }
+    .section { background: white; padding: 20px; margin-bottom: 20px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+    .section h2 { color: #667eea; margin-bottom: 15px; font-size: 18px; }
+    table { width: 100%; border-collapse: collapse; }
+    th, td { padding: 12px; text-align: left; border-bottom: 1px solid #eee; }
+    th { background: #667eea; color: white; font-weight: bold; }
+    tr:hover { background: #f9f9f9; }
+    .amount { color: #4CAF50; font-weight: bold; }
   </style>
 </head>
 <body>
@@ -31,18 +38,49 @@
     </div>
 
     <div id="loading">Yükleniyor...</div>
-    <div id="dashboard" class="dashboard" style="display:none;">
-      <div class="stat-card">
-        <h3>Toplam Satış</h3>
-        <p id="totalSales">$0</p>
+    
+    <div id="dashboard" style="display:none;">
+      <div class="dashboard">
+        <div class="stat-card">
+          <h3>Toplam Satış</h3>
+          <p id="totalSales">$0</p>
+        </div>
+        <div class="stat-card">
+          <h3>Satış Sayısı</h3>
+          <p id="salesCount">0</p>
+        </div>
+        <div class="stat-card">
+          <h3>Acenteler</h3>
+          <p id="agencyCount">0</p>
+        </div>
       </div>
-      <div class="stat-card">
-        <h3>Satış Sayısı</h3>
-        <p id="salesCount">0</p>
+
+      <div class="section">
+        <h2>Top 10 Acenteler</h2>
+        <table id="agenciesTable">
+          <thead>
+            <tr>
+              <th>Acente Adı</th>
+              <th>Satış Sayısı</th>
+              <th>Toplam Tutar</th>
+            </tr>
+          </thead>
+          <tbody id="agenciesBody"></tbody>
+        </table>
       </div>
-      <div class="stat-card">
-        <h3>Acenteler</h3>
-        <p id="agencyCount">0</p>
+
+      <div class="section">
+        <h2>Aylık Satışlar</h2>
+        <table id="monthlyTable">
+          <thead>
+            <tr>
+              <th>Ay</th>
+              <th>Satış Sayısı</th>
+              <th>Toplam Tutar</th>
+            </tr>
+          </thead>
+          <tbody id="monthlyBody"></tbody>
+        </table>
       </div>
     </div>
   </main>
@@ -55,6 +93,7 @@
     const db = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY)
 
     let allSatislar = [];
+    let allAcenteler = [];
     let acentelerCount = 0;
 
     function filterByBranch(branch) {
@@ -68,6 +107,59 @@
       document.getElementById('totalSales').textContent = '$' + total.toLocaleString('en-US', {minimumFractionDigits: 2});
       document.getElementById('salesCount').textContent = filtered.length;
       
+      // Acente sıralaması
+      const agencyStats = {};
+      filtered.forEach(s => {
+        if (!agencyStats[s.acente_id]) {
+          agencyStats[s.acente_id] = { count: 0, total: 0 };
+        }
+        agencyStats[s.acente_id].count++;
+        agencyStats[s.acente_id].total += parseFloat(s.tutar || 0);
+      });
+
+      const agencyList = Object.keys(agencyStats).map(id => ({
+        id,
+        name: allAcenteler.find(a => a.id == id)?.acente_adi || 'Bilinmiyor',
+        count: agencyStats[id].count,
+        total: agencyStats[id].total
+      })).sort((a, b) => b.total - a.total).slice(0, 10);
+
+      const agenciesBody = document.getElementById('agenciesBody');
+      agenciesBody.innerHTML = agencyList.map(a => `
+        <tr>
+          <td>${a.name}</td>
+          <td>${a.count}</td>
+          <td class="amount">$${a.total.toLocaleString('en-US', {minimumFractionDigits: 2})}</td>
+        </tr>
+      `).join('');
+
+      // Aylık sıralaması
+      const monthlyStats = {};
+      filtered.forEach(s => {
+        const date = new Date(s.satis_tarihi);
+        const month = date.toLocaleString('tr-TR', { year: 'numeric', month: 'long' });
+        if (!monthlyStats[month]) {
+          monthlyStats[month] = { count: 0, total: 0 };
+        }
+        monthlyStats[month].count++;
+        monthlyStats[month].total += parseFloat(s.tutar || 0);
+      });
+
+      const monthlyList = Object.keys(monthlyStats).map(month => ({
+        month,
+        count: monthlyStats[month].count,
+        total: monthlyStats[month].total
+      }));
+
+      const monthlyBody = document.getElementById('monthlyBody');
+      monthlyBody.innerHTML = monthlyList.map(m => `
+        <tr>
+          <td>${m.month}</td>
+          <td>${m.count}</td>
+          <td class="amount">$${m.total.toLocaleString('en-US', {minimumFractionDigits: 2})}</td>
+        </tr>
+      `).join('');
+
       // Tab renklerini güncelle
       document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
       event.target.classList.add('active');
@@ -76,7 +168,8 @@
     async function loadData() {
       try {
         const { data: acenteler } = await db.from('acenteler').select('*')
-        acentelerCount = acenteler?.length || 0;
+        allAcenteler = acenteler || [];
+        acentelerCount = allAcenteler.length;
         
         let offset = 0;
         while (true) {
@@ -87,7 +180,7 @@
         }
 
         document.getElementById('loading').style.display = 'none'
-        document.getElementById('dashboard').style.display = 'grid'
+        document.getElementById('dashboard').style.display = 'block'
         document.getElementById('agencyCount').textContent = acentelerCount;
         
         filterByBranch('all');
