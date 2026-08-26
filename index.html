@@ -97,7 +97,6 @@
                 <th>Şube</th>
                 <th>Acente</th>
                 <th>Rehber</th>
-                <th>Müşteri</th>
                 <th>Tutar</th>
               </tr>
             </thead>
@@ -120,7 +119,6 @@
     let allRehberler = [];
     let allSubeler = [];
     let acentelerCount = 0;
-    let currentBranch = 'all';
 
     function getBranchName(subeId) {
       const sube = allSubeler.find(s => s.id == subeId);
@@ -134,7 +132,6 @@
     }
 
     function filterByBranch(branch) {
-      currentBranch = branch;
       let filtered = allSatislar;
       
       if (branch !== 'all') {
@@ -196,7 +193,7 @@
         </tr>
       `).join('');
 
-      // **SATIŞLARI FİLTRELE - TÜM SATIŞLARI GÖSTER**
+      // Satış detayları - SADECE REHBER ADI
       document.getElementById('salesBody').innerHTML = filtered.map(s => `
         <tr>
           <td>${s.satis_tarihi}</td>
@@ -206,8 +203,7 @@
             </span>
           </td>
           <td>${allAcenteler.find(a => a.id == s.acente_id)?.acente_adi || '⚠️ Bilinmiyor'}</td>
-          <td>${allRehberler.find(r => r.id == s.rehber_id)?.rehber_adi || '-'}</td>
-          <td>${s.musteri_adi || '-'}</td>
+          <td><strong>${allRehberler.find(r => r.id == s.rehber_id)?.rehber_adi || '-'}</strong></td>
           <td class="amount">$${parseFloat(s.tutar).toLocaleString('en-US', {minimumFractionDigits: 2})}</td>
         </tr>
       `).join('');
@@ -235,8 +231,6 @@
         const { data: subeler } = await db.from('subeler').select('*')
         allSubeler = subeler || [];
         
-        console.log('Şubeler:', allSubeler);
-        
         let offset = 0;
         while (true) {
           const { data } = await db.from('satislar').select('*').range(offset, offset + 999);
@@ -244,8 +238,6 @@
           allSatislar = allSatislar.concat(data);
           offset += 1000;
         }
-
-        console.log('Toplam satış yüklendi:', allSatislar.length);
 
         document.getElementById('loading').style.display = 'none'
         document.getElementById('dashboard').style.display = 'block'
