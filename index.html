@@ -9,6 +9,9 @@
     .navbar { background: linear-gradient(135deg, #667eea, #764ba2); color: white; padding: 20px; text-align: center; }
     .navbar h1 { font-size: 24px; }
     .container { max-width: 1200px; margin: 20px auto; padding: 20px; }
+    .tabs { margin-bottom: 20px; display: flex; gap: 10px; border-bottom: 2px solid #ddd; }
+    .tab-btn { padding: 10px 20px; background: #e0e0e0; border: none; cursor: pointer; border-radius: 5px 5px 0 0; font-weight: bold; }
+    .tab-btn.active { background: #667eea; color: white; }
     .dashboard { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px; }
     .stat-card { background: white; padding: 30px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); text-align: center; }
     .stat-card h3 { color: #666; margin-bottom: 15px; font-size: 14px; }
@@ -21,6 +24,12 @@
   </header>
 
   <main class="container">
+    <div class="tabs">
+      <button class="tab-btn active" onclick="filterByBranch('all')">Tümü</button>
+      <button class="tab-btn" onclick="filterByBranch('1')">ART (Kuşadası)</button>
+      <button class="tab-btn" onclick="filterByBranch('6')">OBA (Selçuk)</button>
+    </div>
+
     <div id="loading">Yükleniyor...</div>
     <div id="dashboard" class="dashboard" style="display:none;">
       <div class="stat-card">
@@ -45,44 +54,43 @@
     
     const db = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY)
 
+    let allSatislar = [];
+    let acentelerCount = 0;
+
+    function filterByBranch(branch) {
+      let filtered = allSatislar;
+      
+      if (branch !== 'all') {
+        filtered = allSatislar.filter(s => s.sube_id == branch);
+      }
+      
+      const total = filtered.reduce((sum, item) => sum + parseFloat(item.tutar || 0), 0);
+      document.getElementById('totalSales').textContent = '$' + total.toLocaleString('en-US', {minimumFractionDigits: 2});
+      document.getElementById('salesCount').textContent = filtered.length;
+      
+      // Tab renklerini güncelle
+      document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+      event.target.classList.add('active');
+    }
 
     async function loadData() {
       try {
         const { data: acenteler } = await db.from('acenteler').select('*')
+        acentelerCount = acenteler?.length || 0;
         
-let allSatislar = [];
-let currentBranch = 'all';
-
-function filterByBranch(branch) {
-    currentBranch = branch;
-    let filtered = allSatislar;
-    
-    if (branch !== 'all') {
-        filtered = allSatislar.filter(s => s.sube_id == branch);
-    }
-    
-    const total = filtered.reduce((sum, item) => sum + parseFloat(item.tutar || 0), 0);
-    document.getElementById('totalSales').textContent = '$' + total.toLocaleString('en-US', {minimumFractionDigits: 2});
-    document.getElementById('salesCount').textContent = filtered.length;
-}
-
-    let offset = 0;
-    while (true) {
-      const { data } = await db.from('satislar').select('*').range(offset, offset + 999);
-      if (!data || data.length === 0) break;
-      allSatislar = allSatislar.concat(data);
-      offset += 1000;
-    }
-    const satislar = allSatislar;
+        let offset = 0;
+        while (true) {
+          const { data } = await db.from('satislar').select('*').range(offset, offset + 999);
+          if (!data || data.length === 0) break;
+          allSatislar = allSatislar.concat(data);
+          offset += 1000;
+        }
 
         document.getElementById('loading').style.display = 'none'
         document.getElementById('dashboard').style.display = 'grid'
+        document.getElementById('agencyCount').textContent = acentelerCount;
         
-        document.getElementById('agencyCount').textContent = acenteler?.length || 0
-        document.getElementById('salesCount').textContent = satislar?.length || 0
-        
-        const total = satislar?.reduce((sum, s) => sum + (s.tutar || 0), 0) || 0
-        document.getElementById('totalSales').textContent = '$' + total.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})
+        filterByBranch('all');
 
       } catch (error) {
         console.error('Hata:', error)
