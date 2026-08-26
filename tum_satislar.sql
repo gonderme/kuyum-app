@@ -1,0 +1,1 @@
+INSERT INTO satislar (satis_tarihi, musteri_adi, urun_tipi_id, tutar, para_birimi, sube_id) VALUES
