@@ -45,10 +45,19 @@
     
     const db = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY)
 
+
     async function loadData() {
       try {
         const { data: acenteler } = await db.from('acenteler').select('*')
-        const { data: satislar } = await db.from('satislar').select('*').range(0, 10000)
+        let allSatislar = [];
+    let offset = 0;
+    while (true) {
+      const { data } = await db.from('satislar').select('*').range(offset, offset + 999);
+      if (!data || data.length === 0) break;
+      allSatislar = allSatislar.concat(data);
+      offset += 1000;
+    }
+    const satislar = allSatislar;
 
         document.getElementById('loading').style.display = 'none'
         document.getElementById('dashboard').style.display = 'grid'
