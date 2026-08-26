@@ -162,7 +162,13 @@
 
       // Tab renklerini güncelle
       document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
-      event.target.classList.add('active');
+      document.querySelectorAll('.tab-btn').forEach((btn, idx) => {
+        if ((branch === 'all' && idx === 0) || 
+            (branch === '1' && idx === 1) ||
+            (branch === '6' && idx === 2)) {
+          btn.classList.add('active');
+        }
+      });
     }
 
     async function loadData() {
