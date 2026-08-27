@@ -1,0 +1,525 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Günlük Grup Takibi</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, sans-serif; background: #f5f5f5; }
+        .container { max-width: 1600px; margin: 0 auto; padding: 20px; }
+        .card { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        
+        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+        h1 { color: #333; }
+        
+        input[type="date"] { padding: 10px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px; }
+        button { padding: 10px 15px; background: #667eea; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; }
+        button:hover { background: #5568d3; }
+        button.secondary { background: #888; }
+        button.secondary:hover { background: #777; }
+        button.danger { background: #f44336; }
+        button.danger:hover { background: #d32f2f; }
+        
+        /* Tablo */
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; font-size: 13px; }
+        thead { background: #667eea; color: white; }
+        th { padding: 12px; text-align: left; font-weight: 600; }
+        td { padding: 12px; border-bottom: 1px solid #eee; }
+        tbody tr:hover { background: #f9f9f9; }
+        tbody tr.completed { background: #e8f5e9; }
+        
+        input[type="time"], input[type="number"], input[type="text"], select {
+            padding: 6px;
+            border: 1px solid #ddd;
+            border-radius: 3px;
+            font-size: 13px;
+            width: 100%;
+        }
+        
+        input:focus, select:focus { outline: none; border-color: #667eea; }
+        
+        .action-buttons { display: flex; gap: 5px; }
+        .action-buttons button { padding: 6px 10px; font-size: 12px; }
+        
+        /* Modal */
+        .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1000; justify-content: center; align-items: center; }
+        .modal.show { display: flex; }
+        .modal-content { background: white; padding: 30px; border-radius: 8px; max-width: 700px; max-height: 90vh; overflow-y: auto; }
+        .modal-header { font-size: 20px; font-weight: bold; margin-bottom: 20px; color: #333; }
+        .modal-close { float: right; font-size: 24px; cursor: pointer; color: #999; }
+        
+        .form-group { margin-bottom: 15px; }
+        .form-group label { display: block; font-weight: 600; margin-bottom: 5px; color: #333; }
+        
+        .satislar-list { background: #f5f5f5; padding: 15px; border-radius: 4px; margin-top: 20px; max-height: 300px; overflow-y: auto; }
+        .satis-item { background: white; padding: 10px; margin-bottom: 10px; border-left: 4px solid #667eea; border-radius: 3px; }
+        
+        .summary { background: #e8f4f8; padding: 12px; border-left: 4px solid #0288d1; margin-top: 15px; border-radius: 4px; }
+        .summary-row { display: flex; justify-content: space-between; margin-bottom: 5px; }
+        
+        .empty { text-align: center; color: #999; padding: 40px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="card">
+            <div class="header">
+                <h1>📋 GÜNLÜK GRUP TAKIBI</h1>
+                <input type="date" id="tarih">
+            </div>
+            
+            <button onclick="yeniGrupAc()">➕ YENİ GRUP EKLE</button>
+            
+            <table id="tabloDikkat">
+                <thead>
+                    <tr>
+                        <th>OTO</th>
+                        <th>ACENTE</th>
+                        <th>B.SAAT</th>
+                        <th>GIRIŞ SAATİ</th>
+                        <th>GEMİ</th>
+                        <th>REHBER</th>
+                        <th>B.PAX</th>
+                        <th>G.PAX</th>
+                        <th>TÜR</th>
+                        <th>SERVİSÇİ</th>
+                        <th>ARAÇ</th>
+                        <th>NOT</th>
+                        <th>İŞLEMLER</th>
+                    </tr>
+                </thead>
+                <tbody id="tabloBody">
+                </tbody>
+            </table>
+            
+            <div id="bosTabloMesaji" class="empty">Henüz grup eklenmedi.</div>
+        </div>
+    </div>
+    
+    <!-- Modal: Yeni Grup / Düzenleme -->
+    <div id="grupModal" class="modal">
+        <div class="modal-content">
+            <span class="modal-close" onclick="grupModalKapat()">&times;</span>
+            <div class="modal-header" id="modalBaslik">YENİ GRUP</div>
+            
+            <form id="grupForm">
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                    <div class="form-group">
+                        <label>OTO Numarası</label>
+                        <input type="text" id="otoNumarasi" placeholder="20">
+                    </div>
+                    <div class="form-group">
+                        <label>ACENTE</label>
+                        <select id="acenteSecim" required></select>
+                    </div>
+                    <div class="form-group">
+                        <label>Bildirilen Saat</label>
+                        <input type="time" id="bildirilenSaat">
+                    </div>
+                    <div class="form-group">
+                        <label>Giriş Saati</label>
+                        <input type="time" id="girisSaat">
+                    </div>
+                    <div class="form-group">
+                        <label>Gemi</label>
+                        <input type="text" id="gemi" placeholder="Bodrum Lady">
+                    </div>
+                    <div class="form-group">
+                        <label>Rehber ID</label>
+                        <input type="number" id="rehberId" placeholder="5">
+                    </div>
+                    <div class="form-group">
+                        <label>Bildirilen PAX</label>
+                        <input type="number" id="bildirilenPax" placeholder="33">
+                    </div>
+                    <div class="form-group">
+                        <label>Gerçek PAX</label>
+                        <input type="number" id="gercekPax" placeholder="14">
+                    </div>
+                </div>
+                
+                <div class="form-group">
+                    <label>Tür</label>
+                    <input type="text" id="tur" placeholder="ÇANAK 1, BÖLGE GENEL, vb.">
+                </div>
+                
+                <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 15px;">
+                    <div class="form-group">
+                        <label>Servisçi Adı</label>
+                        <input type="text" id="serviscesi" placeholder="AHMET">
+                    </div>
+                    <div class="form-group">
+                        <label>Araç Ücreti (USD)</label>
+                        <input type="number" id="aracUcreti" placeholder="0" step="0.01">
+                    </div>
+                </div>
+                
+                <div class="form-group">
+                    <label>Notlar</label>
+                    <input type="text" id="notlar" placeholder="Özel not varsa">
+                </div>
+                
+                <button type="submit" style="width: 100%; margin-top: 20px;">✅ KAYDET</button>
+            </form>
+        </div>
+    </div>
+    
+    <!-- Modal: Satış Giriş -->
+    <div id="satisModal" class="modal">
+        <div class="modal-content">
+            <span class="modal-close" onclick="satisModalKapat()">&times;</span>
+            <div class="modal-header">SATIŞLAR - <span id="satisGrupBilgi"></span></div>
+            
+            <div style="background: #f0f4ff; padding: 12px; border-radius: 4px; margin-bottom: 15px;">
+                <strong>OTO:</strong> <span id="satisOto"></span> | 
+                <strong>ACENTE:</strong> <span id="satisAcente"></span> | 
+                <strong>REHBER:</strong> <span id="satisRehber"></span> | 
+                <strong>G.PAX:</strong> <span id="satisPax"></span>
+            </div>
+            
+            <div style="display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 10px; margin-bottom: 15px;">
+                <div class="form-group">
+                    <label>Müşteri Adı</label>
+                    <input type="text" id="satisMusteri" placeholder="JOHN DOE">
+                </div>
+                <div class="form-group">
+                    <label>Tutar (USD)</label>
+                    <input type="number" id="satisTutar" placeholder="1000" step="0.01" oninput="hesaplaKomisyon()">
+                </div>
+                <div class="form-group">
+                    <label>Para Birimi</label>
+                    <select id="satisParaBirimi">
+                        <option value="USD" selected>USD</option>
+                        <option value="EUR">EUR</option>
+                        <option value="GBP">GBP</option>
+                        <option value="TL">TL</option>
+                    </select>
+                </div>
+            </div>
+            
+            <div class="summary">
+                <div class="summary-row">
+                    <strong>Acente Komisyon:</strong>
+                    <span id="komAcenteGoster">$0</span>
+                </div>
+                <div class="summary-row">
+                    <strong>Rehber Komisyon:</strong>
+                    <span id="komRehberGoster">$0</span>
+                </div>
+            </div>
+            
+            <button onclick="satisEkle()" style="width: 100%; margin-top: 15px;">➕ SATIŞI EKLE</button>
+            
+            <div class="satislar-list" id="eklenenSatislar">
+                <p style="color: #999; text-align: center;">Henüz satış eklenmedi</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const db = supabase.createClient('https://mntpcoyziokqoieqtgkh.supabase.co', 'sb_publishable_pwtyiRlGK2mLpfTq34e_lg_g_fCKTpn');
+        
+        let grupEditId = null;
+        let secilenGrupId = null;
+        let mevcutOranlar = { acente: 0, rehber: 0 };
+        let eklenenSatislar = [];
+        
+        // Tarih seç
+        document.getElementById('tarih').valueAsDate = new Date();
+        document.getElementById('tarih').addEventListener('change', tabloYukle);
+        
+        // Acenteleri yükle
+        async function acenteleriYukle() {
+            const {data} = await db.from('acenteler').select('id, acente_adi').order('id');
+            const select = document.getElementById('acenteSecim');
+            select.innerHTML = '<option value="">Seçiniz...</option>';
+            data.forEach(a => {
+                const opt = document.createElement('option');
+                opt.value = a.id;
+                opt.text = a.acente_adi;
+                select.appendChild(opt);
+            });
+        }
+        
+        // Tabloyu yükle
+        async function tabloYukle() {
+            const tarih = document.getElementById('tarih').value;
+            const {data} = await db.from('gunluk_grup_takibi')
+                .select('*')
+                .eq('tarih', tarih)
+                .order('id');
+            
+            const tbody = document.getElementById('tabloBody');
+            tbody.innerHTML = '';
+            
+            if (data.length === 0) {
+                document.getElementById('bosTabloMesaji').style.display = 'block';
+                return;
+            }
+            
+            document.getElementById('bosTabloMesaji').style.display = 'none';
+            
+            for (const grup of data) {
+                const acenteNadi = await getAcente Adi(grup.acente_id);
+                const tr = document.createElement('tr');
+                
+                tr.innerHTML = `
+                    <td>${grup.oto_numarasi || '-'}</td>
+                    <td>${acenteNadi}</td>
+                    <td>${grup.bildirilen_saat || '-'}</td>
+                    <td><input type="time" value="${grup.giris_saat || ''}" onchange="guncelleGiris(${grup.id}, this.value)"></td>
+                    <td>${grup.gemi || '-'}</td>
+                    <td>${grup.rehber_id || '-'}</td>
+                    <td>${grup.bildirilen_pax || '-'}</td>
+                    <td><input type="number" value="${grup.gercek_pax || ''}" onchange="guncelleGercekPax(${grup.id}, this.value)"></td>
+                    <td>${grup.tur || '-'}</td>
+                    <td><input type="text" value="${grup.servisce_adi || ''}" onchange="guncelleServisce(${grup.id}, this.value)"></td>
+                    <td><input type="number" value="${grup.arac_ucreti || ''}" step="0.01" onchange="guncelleArac(${grup.id}, this.value)"></td>
+                    <td>${grup.notlar || '-'}</td>
+                    <td>
+                        <div class="action-buttons">
+                            <button onclick="satisGirisiAc(${grup.id})">💰 Satış</button>
+                            <button class="secondary" onclick="grupDuzenle(${grup.id})">✏️</button>
+                            <button class="danger" onclick="grupSil(${grup.id})">🗑️</button>
+                        </div>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            }
+        }
+        
+        async function getAcenteAdi(acenteId) {
+            const {data} = await db.from('acenteler').select('acente_adi').eq('id', acenteId).single();
+            return data?.acente_adi || '-';
+        }
+        
+        // Yeni Grup Aç
+        function yeniGrupAc() {
+            grupEditId = null;
+            document.getElementById('grupForm').reset();
+            document.getElementById('modalBaslik').textContent = 'YENİ GRUP';
+            document.getElementById('grupModal').classList.add('show');
+        }
+        
+        // Grup Düzenle
+        async function grupDuzenle(id) {
+            const {data} = await db.from('gunluk_grup_takibi').select('*').eq('id', id).single();
+            
+            grupEditId = id;
+            document.getElementById('otoNumarasi').value = data.oto_numarasi || '';
+            document.getElementById('acenteSecim').value = data.acente_id;
+            document.getElementById('bildirilenSaat').value = data.bildirilen_saat || '';
+            document.getElementById('girisSaat').value = data.giris_saat || '';
+            document.getElementById('gemi').value = data.gemi || '';
+            document.getElementById('rehberId').value = data.rehber_id || '';
+            document.getElementById('bildirilenPax').value = data.bildirilen_pax || '';
+            document.getElementById('gercekPax').value = data.gercek_pax || '';
+            document.getElementById('tur').value = data.tur || '';
+            document.getElementById('serviscesi').value = data.servisce_adi || '';
+            document.getElementById('aracUcreti').value = data.arac_ucreti || '';
+            document.getElementById('notlar').value = data.notlar || '';
+            
+            document.getElementById('modalBaslik').textContent = 'GRUBU DÜZENLE';
+            document.getElementById('grupModal').classList.add('show');
+        }
+        
+        // Grup Formu Gönder
+        document.getElementById('grupForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const tarih = document.getElementById('tarih').value;
+            const acenteId = parseInt(document.getElementById('acenteSecim').value);
+            
+            const payload = {
+                tarih,
+                oto_numarasi: document.getElementById('otoNumarasi').value,
+                acente_id: acenteId,
+                bildirilen_saat: document.getElementById('bildirilenSaat').value || null,
+                giris_saat: document.getElementById('girisSaat').value || null,
+                gemi: document.getElementById('gemi').value,
+                rehber_id: document.getElementById('rehberId').value ? parseInt(document.getElementById('rehberId').value) : null,
+                bildirilen_pax: document.getElementById('bildirilenPax').value ? parseInt(document.getElementById('bildirilenPax').value) : null,
+                gercek_pax: document.getElementById('gercekPax').value ? parseInt(document.getElementById('gercekPax').value) : null,
+                tur: document.getElementById('tur').value,
+                servisce_adi: document.getElementById('serviscesi').value,
+                arac_ucreti: document.getElementById('aracUcreti').value ? parseFloat(document.getElementById('aracUcreti').value) : null,
+                notlar: document.getElementById('notlar').value
+            };
+            
+            if (grupEditId) {
+                await db.from('gunluk_grup_takibi').update(payload).eq('id', grupEditId);
+            } else {
+                await db.from('gunluk_grup_takibi').insert(payload);
+            }
+            
+            grupModalKapat();
+            tabloYukle();
+        });
+        
+        // Grup Sil
+        async function grupSil(id) {
+            if (confirm('Grubu silmek istediğinize emin misiniz?')) {
+                await db.from('gunluk_grup_takibi').delete().eq('id', id);
+                tabloYukle();
+            }
+        }
+        
+        // Güncellemeler
+        async function guncelleGiris(id, saat) {
+            await db.from('gunluk_grup_takibi').update({giris_saat: saat || null}).eq('id', id);
+        }
+        
+        async function guncelleGercekPax(id, pax) {
+            await db.from('gunluk_grup_takibi').update({gercek_pax: pax ? parseInt(pax) : null}).eq('id', id);
+        }
+        
+        async function guncelleServisce(id, ad) {
+            await db.from('gunluk_grup_takibi').update({servisce_adi: ad}).eq('id', id);
+        }
+        
+        async function guncelleArac(id, ucreti) {
+            await db.from('gunluk_grup_takibi').update({arac_ucreti: ucreti ? parseFloat(ucreti) : null}).eq('id', id);
+        }
+        
+        // Satış Girişi Aç
+        async function satisGirisiAc(id) {
+            secilenGrupId = id;
+            eklenenSatislar = [];
+            
+            const {data} = await db.from('gunluk_grup_takibi').select('*').eq('id', id).single();
+            const acenteNadi = await getAcenteAdi(data.acente_id);
+            
+            document.getElementById('satisGrupBilgi').textContent = `OTO ${data.oto_numarasi}`;
+            document.getElementById('satisOto').textContent = data.oto_numarasi || '-';
+            document.getElementById('satisAcente').textContent = acenteNadi;
+            document.getElementById('satisRehber').textContent = data.rehber_id || '-';
+            document.getElementById('satisPax').textContent = data.gercek_pax || '-';
+            
+            // Komisyon oranlarını yükle
+            await loadKomisyonOrani(data.acente_id, data.tur);
+            
+            document.getElementById('satisModal').classList.add('show');
+            eklenenSatislariGoster();
+        }
+        
+        async function loadKomisyonOrani(acenteId, turTipi) {
+            const {data} = await db.from('komisyon_sablonlari')
+                .select('acente_yuzde, rehber_yuzde')
+                .eq('acente_id', acenteId)
+                .eq('tur_tipi', turTipi);
+            
+            if (data && data.length > 0) {
+                mevcutOranlar = {
+                    acente: data[0].acente_yuzde || 0,
+                    rehber: data[0].rehber_yuzde || 0
+                };
+            } else {
+                mevcutOranlar = { acente: 0, rehber: 0 };
+            }
+        }
+        
+        function hesaplaKomisyon() {
+            const tutar = parseFloat(document.getElementById('satisTutar').value) || 0;
+            const komAcente = tutar * mevcutOranlar.acente;
+            const komRehber = tutar * mevcutOranlar.rehber;
+            
+            document.getElementById('komAcenteGoster').textContent = `$${komAcente.toFixed(2)}`;
+            document.getElementById('komRehberGoster').textContent = `$${komRehber.toFixed(2)}`;
+        }
+        
+        async function satisEkle() {
+            const musteri = document.getElementById('satisMusteri').value;
+            const tutar = parseFloat(document.getElementById('satisTutar').value);
+            const paraBirimi = document.getElementById('satisParaBirimi').value;
+            
+            if (!musteri || !tutar) {
+                alert('Müşteri adı ve tutar zorunludur!');
+                return;
+            }
+            
+            const {data: grup} = await db.from('gunluk_grup_takibi').select('*').eq('id', secilenGrupId).single();
+            
+            // Satış ekle
+            const {error} = await db.from('satislar').insert({
+                satis_tarihi: document.getElementById('tarih').value,
+                acente_id: grup.acente_id,
+                rehber_id: grup.rehber_id,
+                musteri_adi: musteri,
+                tutar,
+                para_birimi: paraBirimi,
+                sube_id: 1
+            });
+            
+            if (error) {
+                alert('Hata: ' + error.message);
+                return;
+            }
+            
+            // Komisyonları ekle
+            const komAcente = tutar * mevcutOranlar.acente;
+            const komRehber = tutar * mevcutOranlar.rehber;
+            
+            if (komAcente > 0) {
+                await db.from('komisyonlar').insert({
+                    tarih: document.getElementById('tarih').value,
+                    rehber_id: grup.rehber_id,
+                    sube_id: 1,
+                    tutar: komAcente,
+                    para_birimi: paraBirimi,
+                    turu: 'KOMİSYON'
+                });
+            }
+            
+            if (komRehber > 0) {
+                await db.from('komisyonlar').insert({
+                    tarih: document.getElementById('tarih').value,
+                    rehber_id: grup.rehber_id,
+                    sube_id: 1,
+                    tutar: komRehber,
+                    para_birimi: paraBirimi,
+                    turu: 'KOMİSYON'
+                });
+            }
+            
+            // Formu temizle
+            document.getElementById('satisMusteri').value = '';
+            document.getElementById('satisTutar').value = '';
+            hesaplaKomisyon();
+            
+            // Eklenen satışları göster
+            eklenenSatislar.push({musteri, tutar, komAcente, komRehber});
+            eklenenSatislariGoster();
+        }
+        
+        function eklenenSatislariGoster() {
+            const div = document.getElementById('eklenenSatislar');
+            
+            if (eklenenSatislar.length === 0) {
+                div.innerHTML = '<p style="color: #999; text-align: center;">Henüz satış eklenmedi</p>';
+                return;
+            }
+            
+            div.innerHTML = eklenenSatislar.map(s => `
+                <div class="satis-item">
+                    <strong>${s.musteri}</strong><br>
+                    💵 $${s.tutar.toFixed(2)} | 💼 $${s.komAcente.toFixed(2)} | 👤 $${s.komRehber.toFixed(2)}
+                </div>
+            `).join('');
+        }
+        
+        function grupModalKapat() {
+            document.getElementById('grupModal').classList.remove('show');
+        }
+        
+        function satisModalKapat() {
+            document.getElementById('satisModal').classList.remove('show');
+        }
+        
+        // İlkle
+        acenteleriYukle();
+        tabloYukle();
+    </script>
+</body>
+</html>
